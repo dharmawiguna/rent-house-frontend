@@ -17,6 +17,8 @@ import * as yup from "yup";
 import { yupResolver } from "@hookform/resolvers/yup";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/atomics/use-toast";
+import { useRegisterMutation } from "@/services/auth.service";
+import { signIn } from "next-auth/react";
 
 const schema = yup.object().shape({
   name: yup.string().min(5).required(),
@@ -40,15 +42,41 @@ function SignUp() {
     },
   });
 
-  function onSubmit(values: FormData) {
-    console.log("🚀 ~ onSubmit ~ values:", values)
-    form.reset();
-    toast({
-      title: "Welcome",
-      description: "Sign in successfully",
-      open: true,
-    });
-    router.push("/");
+  const [register, { isLoading }] = useRegisterMutation();
+
+  async function onSubmit(values: FormData) {
+    try {
+      const res = await register({
+        ...values,
+        password_confirmation: values.password,
+      }).unwrap();
+
+      // console.log("🚀 ~ onSubmit ~ res:", res);
+      if (res.success) {
+        const user = res.data;
+
+        await signIn("credentials", {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          token: user.token,
+          redirect: false,
+        });
+        toast({
+          title: "Sign Up",
+          description: "Sign Up successfully",
+          open: true,
+        });
+
+        router.push("/");
+      }
+    } catch (error: any) {
+      toast({
+        title: "Something went wrong",
+        description: error?.data?.message,
+        variant: "destructive",
+      });
+    }
   }
 
   return (
@@ -56,7 +84,12 @@ function SignUp() {
       className={`px-6 py-24 lg:px-28 bg-primary-foreground bg-cover lg:bg-contain bg-right bg-no-repeat bg-[url('/images/bg-image.svg')] h-screen flex items-center`}
     >
       <div className="p-8 bg-white rounded-[30px] max-w-full lg:max-w-[460px] lg:min-w-[460px] space-y-[30px]">
-        <Image src="/images/logo.svg" alt="nidejia" height={36} width={133} />
+        <Image
+          src="/images/logo.svg"
+          alt="rent-house"
+          height={36}
+          width={133}
+        />
         <Title
           title="Create Account"
           subtitle="Rent and make money online"
@@ -165,7 +198,9 @@ function SignUp() {
               </label>
             </div>
 
-            <Button type="submit">Sign Up</Button>
+            <Button type="submit" disabled={isLoading}>
+              Sign Up
+            </Button>
             <Link href="/sign-in">
               <Button variant="third" className="mt-3">
                 Sign In to My Account
